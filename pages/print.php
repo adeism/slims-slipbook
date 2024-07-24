@@ -42,7 +42,7 @@ if (isset($_POST['itemID']) AND !empty($_POST['itemID']) AND isset($_POST['itemA
             break;
         }
 
-        $_SESSION['slipbook'][] = $itemID;
+        $_SESSION['slipbook'][$itemID] = $itemID;
         $print_count++;
     }
     
@@ -75,6 +75,27 @@ if (isset($_GET['action']) AND $_GET['action'] == 'print') {
     }
 
     // biblio data
+    $template = file_get_contents(__DIR__ . '/slip.html');
+
+    $table_content = '';
+    for ($i=0; $i < 15; $i++) { 
+        $table_content .= <<<HTML
+        <tr>
+            <td style="padding: 10px; border: 1px solid black"></td>
+            <td style="padding: 10px; border: 1px solid black"></td>
+            <td style="padding: 10px; border: 1px solid black"></td>
+            <td style="padding: 10px; border: 1px solid black"></td>
+            <td style="padding: 10px; border: 1px solid black"></td>
+        </tr>
+        HTML;
+    }
+
+    ob_start();
+    echo '<style>@media print { body {margin: 5mm 5mm 5mm 5mm;} #print {display: none;} @page {margin: 1mm 1mm 1mm 1mm;} * {font-family: Arial} }</style>';
+    echo '<a id="print" href="#" onclick="self.print()">Print</a>';
+    echo '<section style="display: block; width: 100%">';
+
+    $seq = 0;
     foreach ($_SESSION['slipbook'] as $id) {
         list($biblio_id,$item_code) = explode(':', trim($id));
         $author = DB::getInstance()->prepare(<<<SQL
@@ -98,8 +119,8 @@ if (isset($_GET['action']) AND $_GET['action'] == 'print') {
 
         $biblio = DB::getInstance()->prepare(<<<SQL
         select
-            i.item_code,
-            i.call_number,
+            i.item_code as itemcode,
+            i.call_number as callnumber,
             b.title
             from item as i
                 inner join biblio as b
@@ -109,18 +130,27 @@ if (isset($_GET['action']) AND $_GET['action'] == 'print') {
         SQL);
         $biblio->execute([$item_code]);
 
-        $biblio_data = $biblio->fetch(PDO::FETCH_ASSOC);
-        $biblio_data['authors'] = $author_string;
+        $biblio_data = $biblio->fetch(PDO::FETCH_NUM);
+        $biblio_data['authors'] = empty($author_string) ? '-' : $author_string;
+        $biblio_data['libraryname'] = config('library_name');
+        $biblio_data['position'] = (($seq + 1) % 2) === 0 ? 'left' : 'right';
+        $biblio_data['table_content'] = $table_content;
 
-        dd($biblio_data);
+        echo str_replace([
+            '{itemcode}','{callnumber}','{title}','{authors}','{libraryname}','{position}','{tablecontent}'
+        ], $biblio_data, $template);
+
+        $seq++;
     }
+    echo '</section>';
+    $content = ob_get_clean();
 
     
     // unset the session
-    unset($_SESSION['slipbook']);
+    // unset($_SESSION['slipbook']);
     // write to file
-    $print_file_name = 'label_print_result_'.strtolower(str_replace(' ', '_', $_SESSION['uname'])).'.html';
-    $file_write = @file_put_contents(UPLOAD.$print_file_name, $html_str);
+    $print_file_name = 'slipbook_print_result_'.strtolower(str_replace(' ', '_', $_SESSION['uname'])).'.html';
+    $file_write = @file_put_contents(UPLOAD.$print_file_name, $content);
     if ($file_write) {
         echo '<script type="text/javascript">parent.$(\'#queueCount\').html(\'0\');</script>';
         // open result in new window

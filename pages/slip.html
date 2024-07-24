@@ -1,0 +1,40 @@
+<section style="width: 43%; display: inline-block;padding: 15px;margin-{position}: 15px">
+    <table id="identity" style="width: 100%;">
+        <tr>
+            <td colspan="3">
+                <strong style="display: block; text-align: center;">{libraryname}</strong>
+                <hr/>
+            </td>
+        </tr>
+        <tr>
+            <td valign="top" style="font-size: 8pt;">No. Inv</td>
+            <td valign="top" style="font-size: 8pt;">:</td>
+            <td valign="top" style="font-size: 8pt;">{itemcode}</td>
+        </tr>
+        <tr>
+            <td valign="top" style="font-size: 8pt;">Judul</td>
+            <td valign="top" style="font-size: 8pt;">:</td>
+            <td valign="top" style="font-size: 8pt;">{title}</td>
+        </tr>
+        <tr>
+            <td valign="top" style="font-size: 8pt;">Pengarang</td>
+            <td valign="top" style="font-size: 8pt;">:</td>
+            <td valign="top" style="font-size: 8pt;">{authors}</td>
+        </tr>
+        <tr>
+            <td valign="top" style="font-size: 8pt;">Call Number</td>
+            <td valign="top" style="font-size: 8pt;">:</td>
+            <td valign="top" style="font-size: 8pt;">{callnumber}</td>
+        </tr>
+    </table>
+    <table style="width: 100%; display: block; border-collapse: collapse;">
+        <tr>
+            <td style="font-size: 8pt; text-align: center; padding: 10px; border: 1px solid black">Tgl. Pinjam</td>
+            <td style="font-size: 8pt; text-align: center; padding: 10px; border: 1px solid black">Nama Peminjam</td>
+            <td style="font-size: 8pt; text-align: center; padding: 10px; border: 1px solid black">Prf Peminjam</td>
+            <td style="font-size: 8pt; text-align: center; padding: 10px; border: 1px solid black">Tgl Kembali</td>
+            <td style="font-size: 8pt; text-align: center; padding: 10px; border: 1px solid black">Prf Petugas</td>
+        </tr>
+        {tablecontent}
+    </table>
+</section>
