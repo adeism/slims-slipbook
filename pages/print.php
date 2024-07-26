@@ -43,10 +43,9 @@ if (isset($_POST['itemID']) AND !empty($_POST['itemID']) AND isset($_POST['itemA
         }
 
         $_SESSION['slipbook'][$itemID] = $itemID;
-        $print_count++;
     }
     
-    echo '<script type="text/javascript">top.$(\'#queueCount\').html(\''.$print_count.'\');</script>';
+    echo '<script type="text/javascript">top.$(\'#queueCount\').html(\''.count($_SESSION['slipbook']).'\');</script>';
 
     if (isset($limit_reach)) {
         $msg = str_replace('{max_print}', $max_print, __('Selected items NOT ADDED to print queue. Only {max_print} can be printed at once'));
@@ -91,7 +90,7 @@ if (isset($_GET['action']) AND $_GET['action'] == 'print') {
     }
 
     ob_start();
-    echo '<style>@media print { body {margin: 5mm 5mm 5mm 5mm;} #print {display: none;} @page {margin: 1mm 1mm 1mm 1mm;} * {font-family: Arial} }</style>';
+    echo '<style>@media print { body {margin: 5mm 5mm 5mm 8mm;} #print {display: none;} @page {margin: 1mm 1mm 1mm 1mm;} * {font-family: Arial} }</style>';
     echo '<a id="print" href="#" onclick="self.print()">Print</a>';
     echo '<section style="display: block; width: 100%">';
 
@@ -103,7 +102,7 @@ if (isset($_GET['action']) AND $_GET['action'] == 'print') {
             ma.author_name 
             from 
                 biblio_author as ba
-            inner join
+            left join
                 mst_author as ma
                 on ma.author_id = ba.author_id
             where
@@ -123,7 +122,7 @@ if (isset($_GET['action']) AND $_GET['action'] == 'print') {
             i.call_number as callnumber,
             b.title
             from item as i
-                inner join biblio as b
+                left join biblio as b
                     on b.biblio_id = i.biblio_id
             where
                 i.item_code = ?
@@ -143,6 +142,7 @@ if (isset($_GET['action']) AND $_GET['action'] == 'print') {
         $seq++;
     }
     echo '</section>';
+    echo '<script>self.print()</script>';
     $content = ob_get_clean();
 
     
@@ -197,7 +197,7 @@ $table_spec = 'item as i inner join biblio as b on b.biblio_id = i.biblio_id';
 
 $datagrid->setSQLColumn(
     'concat(i.biblio_id, \':\', i.item_code)',
-    'i.item_code',
+    'i.item_code AS \'' . __('Item Code') . '\'',
     'i.call_number AS \'' . __('Call Number') . '\'',
     'b.title AS \'' . __('Title') . '\''
 );
