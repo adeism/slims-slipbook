@@ -7,6 +7,7 @@
  * Author: Drajat Hasan
  * Author URI: https://wa.me/send?phone=628973735575&text=Hai+Kak+saya+mau+pesan+plugin
  */
+use SLiMS\Url;
 use SLiMS\Plugins;
 
 if (!function_exists('pluginUrl'))
