@@ -1,6 +1,10 @@
 <?php
-use SLiMS\DB;
 /* Bibliography label printing */
+
+// Debug error reporting
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+ini_set('log_errors', 1);
 
 // key to authenticate
 defined('INDEX_AUTH') or die('Direct access is not allowed!');
@@ -11,6 +15,15 @@ require SIMBIO.'simbio_GUI/table/simbio_table.inc.php';
 require SIMBIO.'simbio_GUI/form_maker/simbio_form_table_AJAX.inc.php';
 require SIMBIO.'simbio_GUI/paging/simbio_paging.inc.php';
 require SIMBIO.'simbio_DB/datagrid/simbio_dbgrid.inc.php';
+
+// global database object
+global $dbs;
+
+// Ensure database connection is available
+if (!isset($dbs) || !$dbs) {
+    utility::jsToastr('Labels Printing', __('Database connection error!'), 'error');
+    die('<div class="errorBox">Database connection not available</div>');
+}
 
 // privileges checking
 $can_read = utility::havePrivilege('bibliography', 'r');
@@ -33,7 +46,10 @@ if (isset($_POST['itemID']) AND !empty($_POST['itemID']) AND isset($_POST['itemA
         $_POST['itemID'] = array($_POST['itemID']);
     }
     /* LABEL SESSION ADDING PROCESS */
-    $print_count = count($_SESSION['slipbook']??[]);
+    if (!isset($_SESSION['slipbook'])) {
+        $_SESSION['slipbook'] = array();
+    }
+    $print_count = count($_SESSION['slipbook']);
     
     // loop array
     foreach ($_POST['itemID'] as $itemID) {
@@ -43,6 +59,7 @@ if (isset($_POST['itemID']) AND !empty($_POST['itemID']) AND isset($_POST['itemA
         }
 
         $_SESSION['slipbook'][$itemID] = $itemID;
+        $print_count++;
     }
     
     echo '<script type="text/javascript">top.$(\'#queueCount\').html(\''.count($_SESSION['slipbook']).'\');</script>';
@@ -97,43 +114,38 @@ if (isset($_GET['action']) AND $_GET['action'] == 'print') {
     $seq = 0;
     foreach ($_SESSION['slipbook'] as $id) {
         list($biblio_id,$item_code) = explode(':', trim($id));
-        $author = DB::getInstance()->prepare(<<<SQL
-        select 
-            ma.author_name 
-            from 
-                biblio_author as ba
-            left join
-                mst_author as ma
-                on ma.author_id = ba.author_id
-            where
-                ba.biblio_id = ?
-        SQL);
-        $author->execute([$biblio_id]);
+        
+        // Get authors for this biblio
+        $author_query = "SELECT ma.author_name 
+                        FROM biblio_author as ba
+                        LEFT JOIN mst_author as ma ON ma.author_id = ba.author_id
+                        WHERE ba.biblio_id = '$biblio_id'";
+        $author_result = $dbs->query($author_query);
 
         $author_string = '';
-        while ($result = $author->fetchObject()) {
-            $author_string .= $result->author_name . ' - ';
+        if ($author_result) {
+            while ($author_row = $author_result->fetch_assoc()) {
+                $author_string .= $author_row['author_name'] . ' - ';
+            }
         }
         $author_string = trim($author_string, ' - ');
 
-        $biblio = DB::getInstance()->prepare(<<<SQL
-        select
-            i.item_code as itemcode,
-            i.call_number as callnumber,
-            b.title
-            from item as i
-                left join biblio as b
-                    on b.biblio_id = i.biblio_id
-            where
-                i.item_code = ?
-        SQL);
-        $biblio->execute([$item_code]);
+        // Get biblio data
+        $biblio_query = "SELECT i.item_code as itemcode, i.call_number as callnumber, b.title
+                        FROM item as i
+                        LEFT JOIN biblio as b ON b.biblio_id = i.biblio_id
+                        WHERE i.item_code = '$item_code'";
+        $biblio_result = $dbs->query($biblio_query);
 
-        $biblio_data = $biblio->fetch(PDO::FETCH_NUM);
+        if (!$biblio_result || $biblio_result->num_rows == 0) {
+            continue; // Skip if no data found
+        }
+        
+        $biblio_data = $biblio_result->fetch_assoc();
         $biblio_data['authors'] = empty($author_string) ? '-' : $author_string;
-        $biblio_data['libraryname'] = config('library_name');
+        $biblio_data['libraryname'] = isset($sysconf['library_name']) ? $sysconf['library_name'] : 'Library';
         $biblio_data['position'] = (($seq + 1) % 2) === 0 ? 'left' : 'right';
-        $biblio_data['table_content'] = $table_content;
+        $biblio_data['tablecontent'] = $table_content;
 
         echo str_replace([
             '{itemcode}','{callnumber}','{title}','{authors}','{libraryname}','{position}','{tablecontent}'
@@ -155,7 +167,9 @@ if (isset($_GET['action']) AND $_GET['action'] == 'print') {
         echo '<script type="text/javascript">parent.$(\'#queueCount\').html(\'0\');</script>';
         // open result in new window
         echo '<script type="text/javascript">top.$.colorbox({href: "'.SWB.FLS.'/'.$print_file_name.'?v='.date('YmdHis').'", iframe: true, width: 800, height: 500, title: "' . __('Labels Printing') . '"})</script>';
-    } else { utility::jsToastr('Labels Printing', str_replace('{directory}', SB.FLS, __('ERROR! Label failed to generate, possibly because {directory} directory is not writable')), 'error'); }
+    } else { 
+        utility::jsToastr('Labels Printing', str_replace('{directory}', UPLOAD, __('ERROR! Label failed to generate, possibly because {directory} directory is not writable')), 'error'); 
+    }
     exit();
 }
 
@@ -168,10 +182,10 @@ if (isset($_GET['action']) AND $_GET['action'] == 'print') {
   </div>
 	<div class="sub_section">
     <div class="btn-group">
-        <a target="blindSubmit" href="<?= pluginUrl(['action' => 'clear']) ?>" class="btn btn-default notAJAX "><?php echo __('Clear Print Queue'); ?></a>
-        <a target="blindSubmit" href="<?= pluginUrl(['action' => 'print']) ?>" class="btn btn-default notAJAX "><?php echo __('Print Labels for Selected Data'); ?></a>
+        <a target="blindSubmit" href="<?php echo $_SERVER['PHP_SELF'] . '?' . $_SERVER['QUERY_STRING'] . '&action=clear'; ?>" class="btn btn-default notAJAX "><?php echo __('Clear Print Queue'); ?></a>
+        <a target="blindSubmit" href="<?php echo $_SERVER['PHP_SELF'] . '?' . $_SERVER['QUERY_STRING'] . '&action=print'; ?>" class="btn btn-default notAJAX "><?php echo __('Print Labels for Selected Data'); ?></a>
 	</div>
-    <form name="search" action="<?= pluginUrl(reset: true) ?>" id="search" method="get" class="form-inline"><?php echo __('Search'); ?>
+    <form name="search" action="<?php echo $_SERVER['PHP_SELF'] . '?' . $_SERVER['QUERY_STRING']; ?>" id="search" method="get" class="form-inline"><?php echo __('Search'); ?>
     <input type="text" name="keywords" class="form-control col-md-3" />
     <input type="submit" id="doSearch" value="<?php echo __('Search'); ?>" class="s-btn btn btn-default" />
     </form>
@@ -180,7 +194,7 @@ if (isset($_GET['action']) AND $_GET['action'] == 'print') {
         <?php
         echo __('Maximum').' <strong class="text-danger">'.$max_print.'</strong> '.__('records can be printed at once. Currently there is').' ';
         if (isset($_SESSION['slipbook'])) {
-            echo '<strong id="queueCount" class="text-danger">'.@( count($_SESSION['slipbook']??[])).'</strong>';
+            echo '<strong id="queueCount" class="text-danger">'.count($_SESSION['slipbook']).'</strong>';
         } else { echo '<strong id="queueCount" class="text-danger">0</strong>'; }
         echo ' '.__('in queue waiting to be printed.');
         ?>
