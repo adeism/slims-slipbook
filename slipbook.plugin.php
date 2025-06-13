@@ -5,7 +5,7 @@
  * Description: Plugin slipbook
  * Version: 1.0.0
  * Author: Drajat Hasan
- * Author URI: https://wa.me/send?phone=628973735575&text=Hai+Kak+saya+mau+pesan+plugin
+ * Modifier : Ade Ismail Siregar (adeismailbox@gmail.com)
  */
 use SLiMS\Url;
 use SLiMS\Plugins;
